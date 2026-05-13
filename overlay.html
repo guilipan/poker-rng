@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>RNG Overlay</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Mono', 'Menlo', monospace;
+      background: transparent;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .overlay {
+      width: 76px;
+      height: 40px;
+      background: rgba(10, 14, 20, 0.88);
+      border: 1px solid rgba(0, 212, 170, 0.4);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: move;
+      -webkit-app-region: drag;
+      position: relative;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .overlay:hover {
+      border-color: rgba(0, 212, 170, 0.8);
+      box-shadow: 0 0 12px rgba(0, 212, 170, 0.3);
+    }
+
+    .overlay.flash {
+      border-color: rgba(0, 255, 200, 1);
+      box-shadow: 0 0 20px rgba(0, 212, 170, 0.6);
+    }
+
+    .number {
+      font-size: 22px;
+      font-weight: 800;
+      color: #00d4aa;
+      text-shadow: 0 0 8px rgba(0, 212, 170, 0.5);
+      line-height: 1;
+      transition: transform 0.15s;
+    }
+
+    .number.pop {
+      animation: numPop 0.2s ease-out;
+    }
+
+    @keyframes numPop {
+      0% { transform: scale(0.6); opacity: 0.5; }
+      60% { transform: scale(1.15); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .close-btn {
+      -webkit-app-region: no-drag;
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ff5f57;
+      border: 1px solid rgba(0,0,0,0.2);
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      color: #800;
+      line-height: 1;
+    }
+
+    .overlay:hover .close-btn {
+      display: flex;
+    }
+
+    .id-badge {
+      position: absolute;
+      bottom: -2px;
+      left: 4px;
+      font-size: 8px;
+      color: rgba(0, 212, 170, 0.5);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay" id="overlay">
+    <div class="number" id="number">--</div>
+    <div class="close-btn" id="closeBtn">&times;</div>
+    <div class="id-badge" id="idBadge">#1</div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const numberEl = document.getElementById('number');
+    const overlay = document.getElementById('overlay');
+    const closeBtn = document.getElementById('closeBtn');
+    const idBadge = document.getElementById('idBadge');
+
+    let overlayId = 0;
+
+    // Receive overlay ID
+    ipcRenderer.on('set-overlay-id', (event, id) => {
+      overlayId = id;
+      idBadge.textContent = '#' + id;
+    });
+
+    // Receive RNG updates
+    ipcRenderer.on('rng-update', (event, data) => {
+      numberEl.textContent = data.number;
+      numberEl.classList.remove('pop');
+      void numberEl.offsetWidth; // force reflow
+      numberEl.classList.add('pop');
+
+      overlay.classList.add('flash');
+      setTimeout(() => overlay.classList.remove('flash'), 300);
+    });
+
+    // Close this overlay
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      ipcRenderer.send('remove-overlay', overlayId);
+    });
+
+    // Click overlay to roll THIS overlay only
+    overlay.addEventListener('click', (e) => {
+      if (e.target === closeBtn) return;
+      ipcRenderer.send('roll-single', overlayId);
+    });
+  </script>
+</body>
+</html>

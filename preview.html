@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Poker RNG - Multi-Overlay Preview</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-primary: rgba(20, 25, 35, 0.95);
+      --bg-secondary: rgba(30, 38, 52, 0.9);
+      --bg-card: rgba(40, 50, 68, 0.8);
+      --accent: #00d4aa;
+      --accent-glow: rgba(0, 212, 170, 0.3);
+      --text-primary: #ffffff;
+      --text-secondary: #8899aa;
+      --danger: #ff4757;
+      --success: #00d4aa;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      background: #080c14;
+      min-height: 100vh;
+      padding: 30px;
+      display: flex;
+      gap: 30px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    /* Control Panel */
+    .control-panel {
+      width: 280px;
+      background: var(--bg-primary);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      flex-shrink: 0;
+    }
+
+    .titlebar {
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      background: rgba(15, 20, 30, 0.9);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .titlebar-title { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+    .dots { display: flex; gap: 5px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-red { background: #ff5f57; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green { background: #28c840; }
+
+    .content { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+    .rng-display {
+      text-align: center;
+      padding: 16px;
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .rng-number {
+      font-size: 52px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), #00ffcc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .rng-number.pop { animation: numPop 0.25s ease-out; }
+    @keyframes numPop {
+      0% { transform: scale(0.6); opacity: 0.5; }
+      60% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .rng-sub { font-size: 10px; color: var(--text-secondary); margin-top: 4px; }
+
+    .btn-row { display: flex; gap: 8px; }
+    .roll-btn {
+      flex: 1; padding: 10px;
+      background: linear-gradient(135deg, var(--accent), #00b894);
+      border: none; border-radius: 8px; color: #000;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .roll-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-glow); }
+    .add-btn {
+      padding: 10px 14px;
+      background: var(--bg-card); border: 1px solid var(--accent);
+      border-radius: 8px; color: var(--accent);
+      font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    .add-btn:hover { background: rgba(0,212,170,0.1); }
+
+    .section {
+      background: var(--bg-secondary); border-radius: 8px;
+      padding: 10px; border: 1px solid var(--border);
+    }
+    .section-title {
+      font-size: 10px; color: var(--text-secondary);
+      font-weight: 600; text-transform: uppercase;
+      margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .badge { padding: 2px 6px; border-radius: 8px; font-size: 9px; font-weight: 700; }
+    .badge-active { background: rgba(0,212,170,0.15); color: var(--success); }
+    .badge-count { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+
+    .auto-row { display: flex; gap: 6px; align-items: center; }
+    .auto-input {
+      width: 45px; padding: 5px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 5px; color: var(--text-primary);
+      font-size: 12px; font-weight: 600; text-align: center; outline: none;
+    }
+    .auto-input:focus { border-color: var(--accent); }
+    .auto-label { font-size: 10px; color: var(--text-secondary); }
+    .auto-btn {
+      padding: 5px 10px; border: 1px solid var(--accent); border-radius: 5px;
+      background: transparent; color: var(--accent);
+      font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+    }
+    .auto-btn.active { background: var(--accent); color: #000; }
+    .auto-btn:hover { background: rgba(0,212,170,0.15); }
+
+    .progress-bar { height: 2px; background: rgba(255,255,255,0.05); border-radius: 1px; margin-top: 6px; overflow: hidden; }
+    .progress-fill { height: 100%; width: 0%; background: var(--accent); transition: width 0.1s linear; }
+
+    .shortcuts {
+      font-size: 9px; color: var(--text-secondary); text-align: center;
+      padding: 8px; border-top: 1px solid var(--border); line-height: 1.8;
+    }
+    .shortcuts kbd {
+      padding: 1px 4px; background: var(--bg-card); border-radius: 3px;
+      border: 1px solid var(--border); font-size: 9px;
+    }
+
+    /* Poker Table Simulation */
+    .tables-area {
+      flex: 1;
+      min-width: 400px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .poker-table {
+      width: 320px;
+      height: 200px;
+      background: radial-gradient(ellipse at center, #1a5c3a 0%, #0d3320 70%, #091a12 100%);
+      border-radius: 100px;
+      border: 8px solid #3d2b1f;
+      box-shadow: inset 0 0 30px rgba(0,0,0,0.5), 0 10px 30px rgba(0,0,0,0.4);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .table-label {
+      color: rgba(255,255,255,0.3);
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    /* Mini Overlay */
+    .mini-overlay {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      width: 72px;
+      height: 38px;
+      background: rgba(10, 14, 20, 0.9);
+      border: 1px solid rgba(0, 212, 170, 0.5);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: move;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .mini-overlay:hover {
+      border-color: rgba(0, 212, 170, 0.9);
+      box-shadow: 0 0 12px rgba(0, 212, 170, 0.4);
+    }
+
+    .mini-overlay.flash {
+      border-color: rgba(0, 255, 200, 1);
+      box-shadow: 0 0 20px rgba(0, 212, 170, 0.7);
+    }
+
+    .mini-number {
+      font-family: 'SF Mono', 'Menlo', monospace;
+      font-size: 20px;
+      font-weight: 800;
+      color: #00d4aa;
+      text-shadow: 0 0 8px rgba(0, 212, 170, 0.5);
+    }
+    .mini-number.pop { animation: numPop 0.2s ease-out; }
+
+    .mini-id {
+      position: absolute;
+      bottom: 1px;
+      left: 5px;
+      font-size: 7px;
+      color: rgba(0, 212, 170, 0.4);
+      font-weight: 600;
+    }
+
+    .mini-close {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ff5f57;
+      border: none;
+      cursor: pointer;
+      display: none;
+      font-size: 7px;
+      color: #800;
+      align-items: center;
+      justify-content: center;
+    }
+    .mini-overlay:hover .mini-close { display: flex; }
+
+    /* Description */
+    .description {
+      width: 100%;
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 16px 20px;
+      border: 1px solid var(--border);
+      margin-top: 10px;
+    }
+    .description h2 {
+      font-size: 14px;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .description p {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+    .description ul {
+      margin: 8px 0 0 16px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 2;
+    }
+    .description code {
+      padding: 1px 5px;
+      background: var(--bg-card);
+      border-radius: 3px;
+      font-size: 10px;
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <!-- Control Panel -->
+  <div class="control-panel">
+    <div class="titlebar">
+      <span class="titlebar-title">&#9824; POKER RNG</span>
+      <div class="dots">
+        <div class="dot dot-red"></div>
+        <div class="dot dot-yellow"></div>
+        <div class="dot dot-green"></div>
+      </div>
+    </div>
+    <div class="content">
+      <div class="rng-display">
+        <div class="rng-number" id="rngNumber">--</div>
+        <div class="rng-sub" id="rngSub">&#8984;+Shift+R to Roll &bull; <span id="overlayCount">0</span> overlays</div>
+      </div>
+      <div class="btn-row">
+        <button class="roll-btn" id="rollBtn">&#127922; ROLL</button>
+        <button class="add-btn" id="addBtn">+ TABLE</button>
+      </div>
+      <div class="section">
+        <div class="section-title">Auto Roll <span class="badge" id="autoStatus"></span></div>
+        <div class="auto-row">
+          <span class="auto-label">Every</span>
+          <input type="number" class="auto-input" id="autoInterval" value="5" min="1" max="300">
+          <span class="auto-label">sec</span>
+          <button class="auto-btn" id="autoBtn">&#9654; START</button>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+    </div>
+    <div class="shortcuts">
+      <kbd>&#8984;&#8679;R</kbd> Roll &nbsp;
+      <kbd>&#8984;&#8679;N</kbd> +Overlay &nbsp;
+      <kbd>&#8984;&#8679;A</kbd> Auto &nbsp;
+      <kbd>&#8984;&#8679;H</kbd> Hide
+    </div>
+  </div>
+
+  <!-- Poker Tables with Overlays -->
+  <div class="tables-area">
+    <div class="poker-table">
+      <span class="table-label">Table 1</span>
+      <div class="mini-overlay" id="overlay1">
+        <div class="mini-number" id="num1">--</div>
+        <div class="mini-id">#1</div>
+        <button class="mini-close">&times;</button>
+      </div>
+    </div>
+    <div class="poker-table">
+      <span class="table-label">Table 2</span>
+      <div class="mini-overlay" id="overlay2">
+        <div class="mini-number" id="num2">--</div>
+        <div class="mini-id">#2</div>
+        <button class="mini-close">&times;</button>
+      </div>
+    </div>
+    <div class="poker-table">
+      <span class="table-label">Table 3</span>
+      <div class="mini-overlay" id="overlay3">
+        <div class="mini-number" id="num3">--</div>
+        <div class="mini-id">#3</div>
+        <button class="mini-close">&times;</button>
+      </div>
+    </div>
+    <div class="poker-table">
+      <span class="table-label">Table 4</span>
+      <div class="mini-overlay" id="overlay4">
+        <div class="mini-number" id="num4">--</div>
+        <div class="mini-id">#4</div>
+        <button class="mini-close">&times;</button>
+      </div>
+    </div>
+
+    <div class="description">
+      <h2>Multi-Overlay Architecture (Jurojin Style)</h2>
+      <p>Each poker table gets its own tiny RNG overlay. Roll once, ALL overlays update simultaneously.</p>
+      <ul>
+        <li>Click <strong>ROLL</strong> or press <code>Space</code> to generate a number</li>
+        <li>Click <strong>+ TABLE</strong> to add a new overlay (in Mac app: drag it to your table)</li>
+        <li><strong>Auto Roll</strong>: set interval, overlays auto-refresh</li>
+        <li>Each overlay is an independent window you can drag to any position</li>
+        <li>Overlays stay on top of all windows including fullscreen poker clients</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // Simulation for preview
+    let history = [];
+    let autoTimer = null;
+    let autoActive = false;
+    let progressTimer = null;
+    let progressStart = 0;
+
+    function secureRandom(min, max) {
+      const arr = new Uint32Array(1);
+      crypto.getRandomValues(arr);
+      return (arr[0] % (max - min + 1)) + min;
+    }
+
+    function roll() {
+      const number = secureRandom(1, 100);
+      const time = new Date().toLocaleTimeString();
+      history.unshift({ number, time });
+      if (history.length > 30) history.pop();
+
+      // Update control panel
+      const rngEl = document.getElementById('rngNumber');
+      rngEl.textContent = number;
+      rngEl.classList.remove('pop');
+      void rngEl.offsetWidth;
+      rngEl.classList.add('pop');
+
+      // Each overlay gets its OWN independent random number
+      for (let i = 1; i <= 4; i++) {
+        const overlayNumber = secureRandom(1, 100);
+        const el = document.getElementById('num' + i);
+        const ov = document.getElementById('overlay' + i);
+        el.textContent = overlayNumber;
+        el.classList.remove('pop');
+        void el.offsetWidth;
+        el.classList.add('pop');
+        ov.classList.add('flash');
+        setTimeout(() => ov.classList.remove('flash'), 300);
+      }
+
+      // Reset progress
+      if (autoActive) progressStart = Date.now();
+    }
+
+    document.getElementById('rollBtn').addEventListener('click', roll);
+    document.getElementById('addBtn').addEventListener('click', () => alert('In the Mac app, this creates a new draggable overlay window!'));
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') { e.preventDefault(); roll(); }
+    });
+
+    // Auto Roll
+    document.getElementById('autoBtn').addEventListener('click', () => {
+      if (autoActive) {
+        autoActive = false;
+        clearInterval(autoTimer);
+        clearInterval(progressTimer);
+        document.getElementById('autoBtn').textContent = '\u25B6 START';
+        document.getElementById('autoBtn').classList.remove('active');
+        document.getElementById('autoStatus').textContent = '';
+        document.getElementById('autoStatus').className = 'badge';
+        document.getElementById('progressFill').style.width = '0%';
+        document.getElementById('autoInterval').disabled = false;
+      } else {
+        autoActive = true;
+        const sec = parseFloat(document.getElementById('autoInterval').value) || 5;
+        const ms = sec * 1000;
+        document.getElementById('autoBtn').textContent = '\u25A0 STOP';
+        document.getElementById('autoBtn').classList.add('active');
+        document.getElementById('autoStatus').textContent = 'ON';
+        document.getElementById('autoStatus').className = 'badge badge-active';
+        document.getElementById('autoInterval').disabled = true;
+
+        roll();
+        progressStart = Date.now();
+        autoTimer = setInterval(roll, ms);
+        progressTimer = setInterval(() => {
+          const pct = ((Date.now() - progressStart) % ms) / ms * 100;
+          document.getElementById('progressFill').style.width = pct + '%';
+        }, 50);
+      }
+    });
+
+    // Set overlay count
+    document.getElementById('overlayCount').textContent = '4';
+
+    // Click individual overlay to roll just that one
+    for (let i = 1; i <= 4; i++) {
+      document.getElementById('overlay' + i).addEventListener('click', () => {
+        const num = secureRandom(1, 100);
+        const el = document.getElementById('num' + i);
+        const ov = document.getElementById('overlay' + i);
+        el.textContent = num;
+        el.classList.remove('pop');
+        void el.offsetWidth;
+        el.classList.add('pop');
+        ov.classList.add('flash');
+        setTimeout(() => ov.classList.remove('flash'), 300);
+      });
+    }
+  </script>
+</body>
+</html>

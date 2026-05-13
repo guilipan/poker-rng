@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Poker RNG</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: rgba(20, 25, 35, 0.95);
+      --bg-secondary: rgba(30, 38, 52, 0.9);
+      --bg-card: rgba(40, 50, 68, 0.8);
+      --accent: #00d4aa;
+      --accent-glow: rgba(0, 212, 170, 0.3);
+      --text-primary: #ffffff;
+      --text-secondary: #8899aa;
+      --danger: #ff4757;
+      --warning: #ffa502;
+      --success: #00d4aa;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      overflow: hidden;
+      user-select: none;
+      border-radius: 12px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Title Bar */
+    .titlebar {
+      -webkit-app-region: drag;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      background: rgba(15, 20, 30, 0.8);
+      border-bottom: 1px solid var(--border);
+      border-radius: 12px 12px 0 0;
+    }
+
+    .titlebar-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+    }
+
+    .titlebar-controls {
+      -webkit-app-region: no-drag;
+      display: flex;
+      gap: 6px;
+    }
+
+    .titlebar-btn {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .titlebar-btn:hover { opacity: 0.8; }
+    .btn-close { background: #ff5f57; }
+    .btn-minimize { background: #ffbd2e; }
+    .btn-pin { background: #28c840; }
+    .btn-pin.unpinned { background: #666; }
+
+    /* Main Content */
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    /* RNG Display */
+    .rng-display {
+      text-align: center;
+      padding: 24px 16px;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .rng-display::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+
+    .rng-display.rolling::before {
+      opacity: 1;
+      animation: pulse 0.5s ease-in-out;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.2); }
+    }
+
+    .rng-number {
+      font-size: 72px;
+      font-weight: 800;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--accent), #00ffcc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 40px var(--accent-glow);
+      transition: transform 0.2s;
+      position: relative;
+      z-index: 1;
+    }
+
+    .rng-number.animate {
+      animation: numberPop 0.3s ease-out;
+    }
+
+    @keyframes numberPop {
+      0% { transform: scale(0.5); opacity: 0; }
+      60% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .rng-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Range Indicator Bar */
+    .range-bar {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      margin-top: 12px;
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .range-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--success), var(--warning), var(--danger));
+      transition: width 0.3s ease;
+    }
+
+    /* Roll Button */
+    .roll-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--accent), #00b894);
+      border: none;
+      border-radius: 10px;
+      color: #000;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.5px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .roll-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 25px var(--accent-glow);
+    }
+
+    .roll-btn:active {
+      transform: translateY(0);
+    }
+
+    .roll-btn .shortcut {
+      font-size: 11px;
+      opacity: 0.7;
+      font-weight: 500;
+    }
+
+    /* Settings Panel */
+    .settings {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      padding-bottom: 8px;
+    }
+
+    .settings-header h3 {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .settings-toggle {
+      font-size: 10px;
+      color: var(--text-secondary);
+    }
+
+    .settings-body {
+      display: none;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    .settings-body.show {
+      display: block;
+    }
+
+    .range-inputs {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .range-input {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .range-input label {
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .range-input input {
+      width: 100%;
+      padding: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+      outline: none;
+    }
+
+    .range-input input:focus {
+      border-color: var(--accent);
+    }
+
+    .range-separator {
+      color: var(--text-secondary);
+      font-size: 16px;
+      padding-top: 16px;
+    }
+
+    /* Presets */
+    .presets {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .preset-btn {
+      padding: 5px 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .preset-btn:hover, .preset-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(0, 212, 170, 0.1);
+    }
+
+    /* Opacity Slider */
+    .opacity-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .opacity-control label {
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .opacity-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--bg-card);
+      outline: none;
+    }
+
+    .opacity-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+
+    /* GTO Helper */
+    .gto-helper {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 12px;
+      border: 1px solid var(--border);
+    }
+
+    /* Auto Roll */
+    .auto-roll {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .auto-roll-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .auto-roll-header h3 {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .auto-roll-status {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    .auto-roll-status.running {
+      background: rgba(0, 212, 170, 0.15);
+      color: var(--success);
+    }
+
+    .auto-roll-status.stopped {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-secondary);
+    }
+
+    .auto-roll-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .auto-roll-interval {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex: 1;
+    }
+
+    .auto-roll-btn {
+      padding: 6px 12px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .auto-roll-btn:hover {
+      background: rgba(0, 212, 170, 0.1);
+    }
+
+    .auto-roll-btn.active {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .auto-roll-btn.active:hover {
+      background: #00b894;
+    }
+
+    .auto-roll-progress {
+      height: 3px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .auto-roll-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.1s linear;
+    }
+
+    .gto-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .gto-header h3 {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .gto-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .gto-input {
+      width: 60px;
+      padding: 6px 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      outline: none;
+    }
+
+    .gto-input:focus {
+      border-color: var(--accent);
+    }
+
+    .gto-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .gto-result {
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      display: none;
+    }
+
+    .gto-result.action-a {
+      background: rgba(0, 212, 170, 0.15);
+      color: var(--success);
+      display: block;
+    }
+
+    .gto-result.action-b {
+      background: rgba(255, 71, 87, 0.15);
+      color: var(--danger);
+      display: block;
+    }
+
+    /* History */
+    .history {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      flex: 1;
+      min-height: 80px;
+      overflow-y: auto;
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .history-header h3 {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .history-clear {
+      font-size: 10px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color 0.2s;
+    }
+
+    .history-clear:hover {
+      color: var(--danger);
+    }
+
+    .history-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .history-item {
+      padding: 4px 8px;
+      background: var(--bg-card);
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+
+    .history-item:first-child {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Stats */
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .stat-label {
+      font-size: 9px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+  </style>
+</head>
+<body>
+  <!-- Title Bar -->
+  <div class="titlebar">
+    <span class="titlebar-title">♠ POKER RNG</span>
+    <div class="titlebar-controls">
+      <button class="titlebar-btn btn-pin" id="pinBtn" title="Toggle Always on Top"></button>
+      <button class="titlebar-btn btn-minimize" id="minBtn" title="Minimize"></button>
+      <button class="titlebar-btn btn-close" id="closeBtn" title="Close"></button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+    <!-- RNG Display -->
+    <div class="rng-display" id="rngDisplay">
+      <div class="rng-number" id="rngNumber">--</div>
+      <div class="rng-label">PRESS ROLL OR ⌘⇧R</div>
+      <div class="range-bar">
+        <div class="range-fill" id="rangeFill" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Roll Button -->
+    <button class="roll-btn" id="rollBtn">
+      🎲 ROLL <span class="shortcut">(⌘+Shift+R)</span>
+    </button>
+
+    <!-- Auto Roll Timer -->
+    <div class="auto-roll">
+      <div class="auto-roll-header">
+        <h3>Auto Roll</h3>
+        <div class="auto-roll-status" id="autoRollStatus"></div>
+      </div>
+      <div class="auto-roll-controls">
+        <div class="auto-roll-interval">
+          <span class="gto-label">Every</span>
+          <input type="number" class="gto-input" id="autoInterval" value="5" min="1" max="300" step="1">
+          <span class="gto-label">sec</span>
+        </div>
+        <button class="auto-roll-btn" id="autoRollBtn">&#9654; START</button>
+      </div>
+      <div class="auto-roll-progress">
+        <div class="auto-roll-progress-bar" id="autoProgressBar"></div>
+      </div>
+    </div>
+
+    <!-- GTO Helper -->
+    <div class="gto-helper">
+      <div class="gto-header">
+        <h3>GTO Decision Helper</h3>
+      </div>
+      <div class="gto-input-row">
+        <span class="gto-label">Action A freq:</span>
+        <input type="number" class="gto-input" id="gtoFreq" value="70" min="0" max="100">
+        <span class="gto-label">%</span>
+      </div>
+      <div class="gto-result" id="gtoResult"></div>
+    </div>
+
+    <!-- Settings -->
+    <div class="settings">
+      <div class="settings-header" id="settingsHeader">
+        <h3>Settings</h3>
+        <span class="settings-toggle">▼</span>
+      </div>
+      <div class="settings-body" id="settingsBody">
+        <div class="range-inputs">
+          <div class="range-input">
+            <label>Min</label>
+            <input type="number" id="rangeMin" value="1">
+          </div>
+          <span class="range-separator">—</span>
+          <div class="range-input">
+            <label>Max</label>
+            <input type="number" id="rangeMax" value="100">
+          </div>
+        </div>
+        <div class="presets">
+          <button class="preset-btn active" data-min="1" data-max="100">1-100</button>
+          <button class="preset-btn" data-min="1" data-max="10">1-10</button>
+          <button class="preset-btn" data-min="1" data-max="50">1-50</button>
+          <button class="preset-btn" data-min="0" data-max="99">0-99</button>
+        </div>
+        <div class="opacity-control">
+          <label>Opacity</label>
+          <input type="range" class="opacity-slider" id="opacitySlider" min="30" max="100" value="95">
+        </div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="history">
+      <div class="history-header">
+        <h3>History</h3>
+        <span class="history-clear" id="clearHistory">Clear</span>
+      </div>
+      <div class="history-list" id="historyList">
+        <span style="color: var(--text-secondary); font-size: 11px;">No rolls yet</span>
+      </div>
+      <div class="stats-row" id="statsRow" style="display: none;">
+        <div class="stat">
+          <div class="stat-value" id="statAvg">--</div>
+          <div class="stat-label">Average</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="statMin">--</div>
+          <div class="stat-label">Min</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="statMax">--</div>
+          <div class="stat-label">Max</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="statCount">0</div>
+          <div class="stat-label">Rolls</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    // Elements
+    const rngNumber = document.getElementById('rngNumber');
+    const rngDisplay = document.getElementById('rngDisplay');
+    const rangeFill = document.getElementById('rangeFill');
+    const rollBtn = document.getElementById('rollBtn');
+    const closeBtn = document.getElementById('closeBtn');
+    const minBtn = document.getElementById('minBtn');
+    const pinBtn = document.getElementById('pinBtn');
+    const rangeMin = document.getElementById('rangeMin');
+    const rangeMax = document.getElementById('rangeMax');
+    const historyList = document.getElementById('historyList');
+    const clearHistory = document.getElementById('clearHistory');
+    const settingsHeader = document.getElementById('settingsHeader');
+    const settingsBody = document.getElementById('settingsBody');
+    const opacitySlider = document.getElementById('opacitySlider');
+    const gtoFreq = document.getElementById('gtoFreq');
+    const gtoResult = document.getElementById('gtoResult');
+    const statsRow = document.getElementById('statsRow');
+
+    let history = [];
+    let isPinned = true;
+    let autoRollTimer = null;
+    let autoRollProgressTimer = null;
+    let autoRollActive = false;
+
+    // Auto Roll elements
+    const autoInterval = document.getElementById('autoInterval');
+    const autoRollBtn = document.getElementById('autoRollBtn');
+    const autoRollStatus = document.getElementById('autoRollStatus');
+    const autoProgressBar = document.getElementById('autoProgressBar');
+
+    // Auto Roll functions
+    function startAutoRoll() {
+      const intervalSec = parseFloat(autoInterval.value) || 5;
+      const intervalMs = intervalSec * 1000;
+      
+      autoRollActive = true;
+      autoRollBtn.textContent = '■ STOP';
+      autoRollBtn.classList.add('active');
+      autoRollStatus.textContent = 'RUNNING';
+      autoRollStatus.className = 'auto-roll-status running';
+      autoInterval.disabled = true;
+
+      // Immediately roll once
+      ipcRenderer.send('roll');
+
+      // Start progress bar animation
+      let startTime = Date.now();
+      autoRollProgressTimer = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const progress = (elapsed / intervalMs) * 100;
+        autoProgressBar.style.width = Math.min(progress, 100) + '%';
+      }, 50);
+
+      // Start auto roll timer
+      autoRollTimer = setInterval(() => {
+        ipcRenderer.send('roll');
+        startTime = Date.now();
+        autoProgressBar.style.width = '0%';
+      }, intervalMs);
+    }
+
+    function stopAutoRoll() {
+      autoRollActive = false;
+      autoRollBtn.textContent = '\u25B6 START';
+      autoRollBtn.classList.remove('active');
+      autoRollStatus.textContent = 'STOPPED';
+      autoRollStatus.className = 'auto-roll-status stopped';
+      autoInterval.disabled = false;
+      autoProgressBar.style.width = '0%';
+
+      if (autoRollTimer) {
+        clearInterval(autoRollTimer);
+        autoRollTimer = null;
+      }
+      if (autoRollProgressTimer) {
+        clearInterval(autoRollProgressTimer);
+        autoRollProgressTimer = null;
+      }
+    }
+
+    autoRollBtn.addEventListener('click', () => {
+      if (autoRollActive) {
+        stopAutoRoll();
+      } else {
+        startAutoRoll();
+      }
+    });
+
+    // Roll
+    rollBtn.addEventListener('click', () => {
+      ipcRenderer.send('roll');
+    });
+
+    // Keyboard shortcut (local)
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code === 'Enter') {
+        e.preventDefault();
+        ipcRenderer.send('roll');
+      }
+    });
+
+    // Receive RNG result
+    ipcRenderer.on('rng-result', (event, data) => {
+      if (data.number !== null) {
+        displayNumber(data.number);
+      }
+      if (data.history) {
+        history = data.history;
+        updateHistory();
+        updateStats();
+      }
+    });
+
+    function displayNumber(number) {
+      // Animation
+      rngDisplay.classList.add('rolling');
+      rngNumber.classList.remove('animate');
+      
+      // Quick animation of random numbers
+      let count = 0;
+      const interval = setInterval(() => {
+        const min = parseInt(rangeMin.value) || 1;
+        const max = parseInt(rangeMax.value) || 100;
+        rngNumber.textContent = Math.floor(Math.random() * (max - min + 1)) + min;
+        count++;
+        if (count > 8) {
+          clearInterval(interval);
+          rngNumber.textContent = number;
+          rngNumber.classList.add('animate');
+          
+          // Update range bar
+          const min = parseInt(rangeMin.value) || 1;
+          const max = parseInt(rangeMax.value) || 100;
+          const percentage = ((number - min) / (max - min)) * 100;
+          rangeFill.style.width = percentage + '%';
+          
+          // GTO helper
+          updateGTOResult(number);
+          
+          setTimeout(() => {
+            rngDisplay.classList.remove('rolling');
+          }, 500);
+        }
+      }, 40);
+    }
+
+    function updateGTOResult(number) {
+      const freq = parseInt(gtoFreq.value) || 70;
+      const result = document.getElementById('gtoResult');
+      
+      if (number <= freq) {
+        result.className = 'gto-result action-a';
+        result.textContent = `✓ ACTION A (RNG ${number} ≤ ${freq}%)`;
+      } else {
+        result.className = 'gto-result action-b';
+        result.textContent = `✗ ACTION B (RNG ${number} > ${freq}%)`;
+      }
+    }
+
+    function updateHistory() {
+      if (history.length === 0) {
+        historyList.innerHTML = '<span style="color: var(--text-secondary); font-size: 11px;">No rolls yet</span>';
+        statsRow.style.display = 'none';
+        return;
+      }
+
+      historyList.innerHTML = history.slice(0, 20).map((item, index) => 
+        `<div class="history-item" title="${item.timestamp}">${item.number}</div>`
+      ).join('');
+      
+      statsRow.style.display = 'flex';
+    }
+
+    function updateStats() {
+      if (history.length === 0) return;
+      
+      const numbers = history.map(h => h.number);
+      const avg = (numbers.reduce((a, b) => a + b, 0) / numbers.length).toFixed(1);
+      const min = Math.min(...numbers);
+      const max = Math.max(...numbers);
+      
+      document.getElementById('statAvg').textContent = avg;
+      document.getElementById('statMin').textContent = min;
+      document.getElementById('statMax').textContent = max;
+      document.getElementById('statCount').textContent = history.length;
+    }
+
+    // Window controls
+    closeBtn.addEventListener('click', () => ipcRenderer.send('close-app'));
+    minBtn.addEventListener('click', () => ipcRenderer.send('minimize-app'));
+    
+    pinBtn.addEventListener('click', () => {
+      isPinned = !isPinned;
+      pinBtn.classList.toggle('unpinned', !isPinned);
+      ipcRenderer.send('toggle-always-on-top', isPinned);
+    });
+
+    // Range inputs
+    function updateRange() {
+      const min = parseInt(rangeMin.value) || 1;
+      const max = parseInt(rangeMax.value) || 100;
+      if (min < max) {
+        ipcRenderer.send('set-range', { min, max });
+        // Update preset buttons
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+          btn.classList.toggle('active', 
+            parseInt(btn.dataset.min) === min && parseInt(btn.dataset.max) === max
+          );
+        });
+      }
+    }
+
+    rangeMin.addEventListener('change', updateRange);
+    rangeMax.addEventListener('change', updateRange);
+
+    // Presets
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        rangeMin.value = btn.dataset.min;
+        rangeMax.value = btn.dataset.max;
+        updateRange();
+      });
+    });
+
+    // Settings toggle
+    settingsHeader.addEventListener('click', () => {
+      settingsBody.classList.toggle('show');
+      const toggle = settingsHeader.querySelector('.settings-toggle');
+      toggle.textContent = settingsBody.classList.contains('show') ? '▲' : '▼';
+    });
+
+    // Opacity
+    opacitySlider.addEventListener('input', () => {
+      const opacity = opacitySlider.value / 100;
+      ipcRenderer.send('set-opacity', opacity);
+    });
+
+    // Clear history
+    clearHistory.addEventListener('click', () => {
+      history = [];
+      updateHistory();
+      updateStats();
+      rngNumber.textContent = '--';
+      rangeFill.style.width = '0%';
+      gtoResult.className = 'gto-result';
+      gtoResult.style.display = 'none';
+    });
+
+    // Double click to roll
+    rngDisplay.addEventListener('dblclick', () => {
+      ipcRenderer.send('roll');
+    });
+
+    // Listen for global auto-roll toggle
+    ipcRenderer.on('toggle-auto-roll', () => {
+      if (autoRollActive) {
+        stopAutoRoll();
+      } else {
+        startAutoRoll();
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "name": "poker-rng",
+  "version": "1.0.0",
+  "description": "Poker Random Number Generator for Mac - Similar to Jurojin RNG",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac",
+    "pack": "electron-builder --mac --dir"
+  },
+  "author": "PokerRNG",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.pokerrng.app",
+    "productName": "Poker RNG",
+    "publish": null,
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": ["dmg"],
+      "icon": "assets/icon.icns",
+      "identity": null
+    },
+    "files": [
+      "**/*",
+      "!node_modules/.cache"
+    ]
+  }
+}

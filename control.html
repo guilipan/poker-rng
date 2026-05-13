@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Poker RNG Control</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-primary: rgba(20, 25, 35, 0.95);
+      --bg-secondary: rgba(30, 38, 52, 0.9);
+      --bg-card: rgba(40, 50, 68, 0.8);
+      --accent: #00d4aa;
+      --accent-glow: rgba(0, 212, 170, 0.3);
+      --text-primary: #ffffff;
+      --text-secondary: #8899aa;
+      --danger: #ff4757;
+      --warning: #ffa502;
+      --success: #00d4aa;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      overflow: hidden;
+      user-select: none;
+      border-radius: 12px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .titlebar {
+      -webkit-app-region: drag;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      background: rgba(15, 20, 30, 0.9);
+      border-bottom: 1px solid var(--border);
+      border-radius: 12px 12px 0 0;
+    }
+
+    .titlebar-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+    }
+
+    .titlebar-controls {
+      -webkit-app-region: no-drag;
+      display: flex;
+      gap: 6px;
+    }
+
+    .titlebar-btn { width: 12px; height: 12px; border-radius: 50%; border: none; cursor: pointer; }
+    .btn-close { background: #ff5f57; }
+    .btn-minimize { background: #ffbd2e; }
+
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 10px;
+      overflow-y: auto;
+    }
+
+    /* RNG Display */
+    .rng-display {
+      text-align: center;
+      padding: 16px;
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .rng-number {
+      font-size: 56px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), #00ffcc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .rng-number.pop { animation: numPop 0.25s ease-out; }
+    @keyframes numPop {
+      0% { transform: scale(0.6); opacity: 0.5; }
+      60% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .rng-sub {
+      font-size: 10px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Buttons */
+    .btn-row { display: flex; gap: 8px; }
+
+    .roll-btn {
+      flex: 1;
+      padding: 12px;
+      background: linear-gradient(135deg, var(--accent), #00b894);
+      border: none;
+      border-radius: 8px;
+      color: #000;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .roll-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-glow); }
+    .roll-btn:active { transform: translateY(0); }
+
+    .add-btn {
+      padding: 12px 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .add-btn:hover { background: rgba(0, 212, 170, 0.1); }
+
+    /* Section */
+    .section {
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      padding: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .section-title {
+      font-size: 10px;
+      color: var(--text-secondary);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .badge {
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-size: 9px;
+      font-weight: 700;
+    }
+    .badge-active { background: rgba(0,212,170,0.15); color: var(--success); }
+    .badge-count { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+
+    /* Overlay Manager */
+    .overlay-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .overlay-info {
+      font-size: 11px;
+      color: var(--text-primary);
+    }
+
+    .overlay-actions { display: flex; gap: 4px; }
+
+    .sm-btn {
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .sm-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .sm-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* Auto Roll */
+    .auto-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .auto-input {
+      width: 50px;
+      padding: 5px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-primary);
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      outline: none;
+    }
+    .auto-input:focus { border-color: var(--accent); }
+
+    .auto-label { font-size: 10px; color: var(--text-secondary); }
+
+    .auto-btn {
+      padding: 5px 10px;
+      border: 1px solid var(--accent);
+      border-radius: 5px;
+      background: transparent;
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .auto-btn.active { background: var(--accent); color: #000; }
+    .auto-btn:hover { background: rgba(0,212,170,0.15); }
+    .auto-btn.active:hover { background: #00b894; }
+
+    .progress-bar {
+      height: 2px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 1px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.1s linear;
+    }
+
+    /* Range */
+    .range-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .range-input {
+      width: 50px;
+      padding: 5px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-primary);
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      outline: none;
+    }
+    .range-input:focus { border-color: var(--accent); }
+
+    .presets { display: flex; gap: 4px; margin-top: 6px; }
+    .preset-btn {
+      padding: 3px 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .preset-btn:hover, .preset-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Shortcuts info */
+    .shortcuts {
+      font-size: 9px;
+      color: var(--text-secondary);
+      text-align: center;
+      padding: 6px;
+      border-top: 1px solid var(--border);
+      line-height: 1.6;
+    }
+    .shortcuts kbd {
+      padding: 1px 4px;
+      background: var(--bg-card);
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      font-size: 9px;
+    }
+
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+  </style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="titlebar-title">&#9824; POKER RNG</span>
+    <div class="titlebar-controls">
+      <button class="titlebar-btn btn-minimize" id="minBtn"></button>
+      <button class="titlebar-btn btn-close" id="closeBtn"></button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- RNG Display -->
+    <div class="rng-display">
+      <div class="rng-number" id="rngNumber">--</div>
+      <div class="rng-sub">&#8984;+Shift+R to Roll &bull; <span id="overlayCountText">0 overlays</span></div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="btn-row">
+      <button class="roll-btn" id="rollBtn">&#127922; ROLL</button>
+      <button class="add-btn" id="addBtn">+ TABLE</button>
+    </div>
+
+    <!-- Auto Roll -->
+    <div class="section">
+      <div class="section-title">
+        Auto Roll
+        <span class="badge" id="autoStatus"></span>
+      </div>
+      <div class="auto-row">
+        <span class="auto-label">Every</span>
+        <input type="number" class="auto-input" id="autoInterval" value="5" min="1" max="300">
+        <span class="auto-label">sec</span>
+        <button class="auto-btn" id="autoBtn">&#9654; START</button>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <!-- Range Settings -->
+    <div class="section">
+      <div class="section-title">Range</div>
+      <div class="range-row">
+        <input type="number" class="range-input" id="rangeMin" value="1">
+        <span class="auto-label">&mdash;</span>
+        <input type="number" class="range-input" id="rangeMax" value="100">
+      </div>
+      <div class="presets">
+        <button class="preset-btn active" data-min="1" data-max="100">1-100</button>
+        <button class="preset-btn" data-min="1" data-max="10">1-10</button>
+        <button class="preset-btn" data-min="1" data-max="50">1-50</button>
+        <button class="preset-btn" data-min="0" data-max="99">0-99</button>
+      </div>
+    </div>
+
+    <!-- Overlay Manager -->
+    <div class="section">
+      <div class="section-title">
+        Overlays
+        <span class="badge badge-count" id="overlayBadge">0</span>
+      </div>
+      <div class="btn-row">
+        <button class="sm-btn" id="addOverlayBtn">+ Add Overlay</button>
+        <button class="sm-btn danger" id="removeAllBtn">Remove All</button>
+      </div>
+    </div>
+
+    </div>
+  </div>
+
+  <div class="shortcuts">
+    <kbd>&#8984;&#8679;R</kbd> Roll &nbsp;
+    <kbd>&#8984;&#8679;N</kbd> +Overlay &nbsp;
+    <kbd>&#8984;&#8679;A</kbd> Auto &nbsp;
+    <kbd>&#8984;&#8679;H</kbd> Hide
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    const rngNumber = document.getElementById('rngNumber');
+    const rollBtn = document.getElementById('rollBtn');
+    const addBtn = document.getElementById('addBtn');
+    const autoBtn = document.getElementById('autoBtn');
+    const autoIntervalInput = document.getElementById('autoInterval');
+    const autoStatus = document.getElementById('autoStatus');
+    const progressFill = document.getElementById('progressFill');
+    const rangeMin = document.getElementById('rangeMin');
+    const rangeMax = document.getElementById('rangeMax');
+    const overlayCountText = document.getElementById('overlayCountText');
+    const overlayBadge = document.getElementById('overlayBadge');
+
+    let isAutoRoll = false;
+    let progressTimer = null;
+    let lastNumber = null;
+
+    // Roll
+    rollBtn.addEventListener('click', () => ipcRenderer.send('roll'));
+
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') { e.preventDefault(); ipcRenderer.send('roll'); }
+    });
+
+    // Add overlay
+    addBtn.addEventListener('click', () => ipcRenderer.send('add-overlay'));
+    document.getElementById('addOverlayBtn').addEventListener('click', () => ipcRenderer.send('add-overlay'));
+    document.getElementById('removeAllBtn').addEventListener('click', () => ipcRenderer.send('remove-all-overlays'));
+
+    // Auto Roll
+    autoBtn.addEventListener('click', () => {
+      if (isAutoRoll) {
+        ipcRenderer.send('stop-auto-roll');
+      } else {
+        const ms = (parseFloat(autoIntervalInput.value) || 5) * 1000;
+        ipcRenderer.send('start-auto-roll', ms);
+      }
+    });
+
+    ipcRenderer.on('auto-roll-state', (event, state) => {
+      isAutoRoll = state.active;
+      if (isAutoRoll) {
+        autoBtn.textContent = '\u25A0 STOP';
+        autoBtn.classList.add('active');
+        autoStatus.textContent = 'ON';
+        autoStatus.className = 'badge badge-active';
+        autoIntervalInput.disabled = true;
+        startProgress(state.interval);
+      } else {
+        autoBtn.textContent = '\u25B6 START';
+        autoBtn.classList.remove('active');
+        autoStatus.textContent = '';
+        autoStatus.className = 'badge';
+        autoIntervalInput.disabled = false;
+        stopProgress();
+      }
+    });
+
+    let progressStart;
+    function startProgress(intervalMs) {
+      stopProgress();
+      progressStart = Date.now();
+      progressTimer = setInterval(() => {
+        const pct = ((Date.now() - progressStart) % intervalMs) / intervalMs * 100;
+        progressFill.style.width = pct + '%';
+      }, 50);
+    }
+    function stopProgress() {
+      if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+      progressFill.style.width = '0%';
+    }
+
+    // RNG result
+    ipcRenderer.on('rng-result', (event, data) => {
+      if (data.number !== null) {
+        lastNumber = data.number;
+        rngNumber.textContent = data.number;
+        rngNumber.classList.remove('pop');
+        void rngNumber.offsetWidth;
+        rngNumber.classList.add('pop');
+        // Reset progress on roll
+        if (isAutoRoll) progressStart = Date.now();
+      }
+      if (data.overlayCount !== undefined) updateOverlayCount(data.overlayCount);
+    });
+
+    // Overlay count
+    ipcRenderer.on('overlay-count', (event, count) => updateOverlayCount(count));
+
+    function updateOverlayCount(count) {
+      overlayCountText.textContent = count + ' overlay' + (count !== 1 ? 's' : '');
+      overlayBadge.textContent = count;
+    }
+
+    // Range
+    function updateRange() {
+      const min = parseInt(rangeMin.value) || 1;
+      const max = parseInt(rangeMax.value) || 100;
+      if (min < max) {
+        ipcRenderer.send('set-range', { min, max });
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+          btn.classList.toggle('active', parseInt(btn.dataset.min) === min && parseInt(btn.dataset.max) === max);
+        });
+      }
+    }
+    rangeMin.addEventListener('change', updateRange);
+    rangeMax.addEventListener('change', updateRange);
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        rangeMin.value = btn.dataset.min;
+        rangeMax.value = btn.dataset.max;
+        updateRange();
+      });
+    });
+
+    // Window controls
+    document.getElementById('closeBtn').addEventListener('click', () => ipcRenderer.send('close-app'));
+    document.getElementById('minBtn').addEventListener('click', () => ipcRenderer.send('minimize-app'));
+  </script>
+</body>
+</html>
