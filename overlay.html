@@ -39,12 +39,24 @@
     }
 
     .number {
+      -webkit-app-region: no-drag;
       font-size: 22px;
       font-weight: 800;
       color: #00d4aa;
       text-shadow: 0 0 8px rgba(0, 212, 170, 0.5);
       line-height: 1;
       transition: transform 0.15s;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .number:hover {
+      background: rgba(0, 212, 170, 0.1);
+    }
+
+    .number:active {
+      transform: scale(0.9);
     }
 
     .number.pop {
@@ -129,9 +141,9 @@
       ipcRenderer.send('remove-overlay', overlayId);
     });
 
-    // Click overlay to roll THIS overlay only
-    overlay.addEventListener('click', (e) => {
-      if (e.target === closeBtn) return;
+    // Click number to roll THIS overlay only
+    numberEl.addEventListener('click', (e) => {
+      e.stopPropagation();
       ipcRenderer.send('roll-single', overlayId);
     });
   </script>
