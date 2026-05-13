@@ -2,6 +2,20 @@
 
 类似 Windows 上 Jurojin 的 Poker 随机数生成器，专为 Mac 用户打造。
 
+## 截图
+
+### 整体效果：控制面板 + 多桌浮层
+
+![Overview](screenshots/overview.png)
+
+### 控制面板
+
+![Control Panel](screenshots/control-panel.png)
+
+### 牌桌上的 Mini Overlay
+
+![Overlay on Table](screenshots/overlay-on-table.png)
+
 ## 架构
 
 ```
