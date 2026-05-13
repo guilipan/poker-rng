@@ -11,11 +11,13 @@
       background: transparent;
       overflow: hidden;
       user-select: none;
+      width: 100vw;
+      height: 100vh;
     }
 
     .overlay {
-      width: 76px;
-      height: 40px;
+      width: 100%;
+      height: 100%;
       background: rgba(10, 14, 20, 0.88);
       border: 1px solid rgba(0, 212, 170, 0.4);
       border-radius: 8px;
@@ -40,7 +42,7 @@
 
     .number {
       -webkit-app-region: no-drag;
-      font-size: 22px;
+      font-size: clamp(16px, 5vw, 64px);
       font-weight: 800;
       color: #00d4aa;
       text-shadow: 0 0 8px rgba(0, 212, 170, 0.5);
@@ -94,11 +96,21 @@
 
     .id-badge {
       position: absolute;
-      bottom: -2px;
-      left: 4px;
-      font-size: 8px;
+      bottom: 2px;
+      left: 5px;
+      font-size: clamp(6px, 1.5vw, 10px);
       color: rgba(0, 212, 170, 0.5);
       font-weight: 600;
+    }
+
+    .resize-handle {
+      -webkit-app-region: no-drag;
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 12px;
+      height: 12px;
+      cursor: se-resize;
     }
   </style>
 </head>
@@ -107,6 +119,7 @@
     <div class="number" id="number">--</div>
     <div class="close-btn" id="closeBtn">&times;</div>
     <div class="id-badge" id="idBadge">#1</div>
+    <div class="resize-handle"></div>
   </div>
 
   <script>
